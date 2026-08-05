@@ -43,14 +43,15 @@
 
 ## 📱 Quick Install via Prebuilt APK (No Setup Required)
 
-If you just want to install and use **Vaultly** on your Android phone without setting up Node.js, Android Studio, or React Native development tools, prebuilt APKs are provided directly in the [`apk/`](./apk) directory of this repository:
+If you just want to install and use **Vaultly** on your Android phone without setting up Node.js, Android Studio, or React Native development tools, prebuilt APKs are available on the [**GitHub Releases Page**](https://github.com/GabrielThomasKoviri/Vaultly/releases):
 
-- 📥 [**`Vaultly-arm64-v8a.apk`**](./apk/Vaultly-arm64-v8a.apk) *(Recommended for most modern 64-bit Android smartphones)*
-- 📥 [**`Vaultly-armeabi-v7a.apk`**](./apk/Vaultly-armeabi-v7a.apk) *(For older 32-bit Android smartphones)*
-- 📥 [**`Vaultly-x86_64.apk`**](./apk/Vaultly-x86_64.apk) *(For Android emulators and Chromebooks)*
+- 📥 [**Download Latest Release APKs**](https://github.com/GabrielThomasKoviri/Vaultly/releases)
+  - `Vaultly-arm64-v8a.apk` *(Recommended for most modern 64-bit Android smartphones)*
+  - `Vaultly-armeabi-v7a.apk` *(For older 32-bit Android smartphones)*
+  - `Vaultly-x86_64.apk` *(For Android emulators and Chromebooks)*
 
 ### Installation Steps on Android:
-1. Download the appropriate `.apk` file (e.g., [`Vaultly-arm64-v8a.apk`](./apk/Vaultly-arm64-v8a.apk)) onto your Android device.
+1. Open the [**Releases Page**](https://github.com/GabrielThomasKoviri/Vaultly/releases) and download the appropriate `.apk` file (e.g., `Vaultly-arm64-v8a.apk`).
 2. Open your device's File Manager and tap the downloaded `.apk` file.
 3. If prompted by Android, enable **"Allow installation from unknown sources"** for your file manager or browser.
 4. Tap **Install** and open **Vaultly**!
@@ -71,8 +72,8 @@ If you want to modify the code or run the application in a development environme
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/your-username/PersonalVault.git
-   cd PersonalVault
+   git clone https://github.com/GabrielThomasKoviri/Vaultly.git
+   cd Vaultly
    ```
 
 2. **Install dependencies:**

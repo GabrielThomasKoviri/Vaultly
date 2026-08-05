@@ -11,6 +11,10 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Prebuilt APKs & Local APK Builds (Use GitHub Releases for APK distribution)
+apk/
+*.apk
+
 # Android Build Artifacts & Keystores
 android/.gradle/
 android/build/
