@@ -1,6 +1,10 @@
-# 🔐 Vaultly - Offline Secure Vault & Media Storage
+# 🔐 Vaultly — Android Offline Secure Vault & Media Storage
 
-**Vaultly** is a privacy-first, 100% offline React Native application built with Expo SDK 56. It provides a secure personal digital vault designed to organize, search, and protect confidential media, images, videos, audio, and documents locally on your device without wasting time searching for files.
+[![Platform](https://img.shields.io/badge/Platform-Android-green.svg?style=flat&logo=android)](https://www.android.com/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Framework](https://img.shields.io/badge/Framework-React%20Native%20%7C%20Expo-6052FF.svg?logo=react)](https://expo.dev)
+
+> 🤖 **Exclusively for Android**: **Vaultly** is a privacy-first, 100% offline application designed specifically for Android smartphones and tablets (Android 7.0+ / API 24+). It utilizes native Android intent filters, local SQLite storage, and hardware biometric authentication to organize, search, and protect confidential media, images, videos, audio, and documents locally on your device without wasting time searching for files.
 
 ---
 
@@ -13,7 +17,7 @@
 
 - 🔒 **Local PIN & Biometric Authentication**
   - Secure PIN lock with PBKDF2/SHA256 salted hashing.
-  - Hardware biometric unlock (Fingerprint / Face ID).
+  - Hardware biometric unlock (Android Fingerprint / Face Unlock).
   - Recovery security questions for PIN resets.
   - Auto-lock protection when backgrounded.
 
@@ -25,12 +29,12 @@
 - 📷 **Built-in Camera**
   - Capture photos directly inside the vault without saving them to the public system gallery.
 
-- 📥 **Native Share Intent**
-  - Share files, photos, or documents directly from any external app straight into Vaultly.
+- 📥 **Native Android Share Intent**
+  - Share files, photos, or documents directly from any Android app straight into Vaultly via native `android.intent.action.SEND` integration.
 
 - 📦 **Password-Protected Backup & Restore**
   - Export your entire vault into an encrypted ZIP backup file.
-  - Easily restore backup archives on new devices.
+  - Easily restore backup archives on new Android devices.
 
 - 🎨 **Custom Themes & Personalization**
   - Dark Mode and Light Mode support.
@@ -41,7 +45,7 @@
 
 ---
 
-## 📱 Quick Install via Prebuilt APK (No Setup Required)
+## 📱 Quick Install via Prebuilt APK (Android)
 
 If you just want to install and use **Vaultly** on your Android phone without setting up Node.js, Android Studio, or React Native development tools, prebuilt APKs are available on the [**GitHub Releases Page**](https://github.com/GabrielThomasKoviri/Vaultly/releases):
 
@@ -60,7 +64,7 @@ If you just want to install and use **Vaultly** on your Android phone without se
 
 ## 💻 Running from Source Code (Development Setup)
 
-If you want to modify the code or run the application in a development environment, follow these steps:
+If you want to modify the code or run the application in an Android development environment, follow these steps:
 
 ### Prerequisites
 
@@ -85,8 +89,6 @@ If you want to modify the code or run the application in a development environme
    ```bash
    npx expo start
    ```
-   - **What it does:** Starts the Metro JavaScript bundler.
-   - **Why use it:** Metro compiles your JavaScript application code, listens for live changes as you code (Hot Reloading), and displays interactive options and a QR code for debugging.
 
 4. **Compile & Run on Android Device / Emulator:**
    ```bash
@@ -98,7 +100,7 @@ If you want to modify the code or run the application in a development environme
      1. Invokes the Android Gradle build system inside the `android/` directory.
      2. Compiles native C++, Java, and Kotlin source code for libraries like SQLite, Biometrics, and Share Intent handlers.
      3. Generates a development debug APK, installs it onto your connected Android device or emulator, and automatically launches the app attached to Metro.
-   - **Why use it:** Since Vaultly relies on native device features (SQLite database, Local Biometrics, Camera, Native Share Intents), standard Expo Go cannot run these native modules. `npm run android` builds and links these native Android capabilities directly.
+   - **Why use it:** Since Vaultly relies on native Android device features (SQLite database, Local Biometrics, Camera, Native Share Intents), standard Expo Go cannot run these native modules. `npm run android` builds and links these native Android capabilities directly.
 
 ---
 
@@ -134,6 +136,7 @@ To generate an optimized, standalone release APK file from source:
 
 ## 🛠️ Tech Stack
 
+- **Target Platform**: Android (Android 7.0+ / API 24+)
 - **Framework**: React Native with [Expo SDK 56](https://expo.dev)
 - **Database**: SQLite (`expo-sqlite`)
 - **Security**: `expo-crypto`, `expo-local-authentication`
