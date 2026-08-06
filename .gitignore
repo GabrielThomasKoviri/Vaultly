@@ -26,10 +26,8 @@ android/local.properties
 *.jks
 *.pepk
 
-# iOS Build Artifacts & Provisioning
-ios/Pods/
-ios/build/
-ios/DerivedData/
+# iOS (Excluded - App is Android Only)
+ios/
 *.mobileprovision
 *.p8
 *.p12
