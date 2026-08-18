@@ -143,6 +143,13 @@ To generate an optimized, standalone release APK file from source:
 - **Media & File System**: `expo-file-system`, `expo-camera`, `expo-image-picker`, `expo-media-library`
 - **Archiving**: `react-native-zip-archive`
 - **Styling & UI**: Custom Design System with Reanimated animations
+- **AI Development Partner**: [Antigravity](https://deepmind.google/) (Google DeepMind)
+
+---
+
+## 🤖 Acknowledgments
+
+This project was built and pair-programmed with **Antigravity**, Google DeepMind's agentic AI coding assistant.
 
 ---
 
