@@ -55,6 +55,15 @@ export const renameItem = (id, newName) => {
   );
 };
 
+export const updateNote = (id, name, tags, size, file_hash) => {
+  return queueQuery(() =>
+    db.runAsync(
+      'UPDATE items SET name=?, tags=?, size=?, file_hash=? WHERE id=?',
+      [name, tags, size || 0, file_hash || null, id]
+    )
+  );
+};
+
 export const deleteItem = (id) => {
   return queueQuery(async () => {
     // Find the item details

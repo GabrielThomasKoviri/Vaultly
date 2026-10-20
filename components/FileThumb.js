@@ -97,7 +97,7 @@ export default function FileThumb({ item, size = 56 }) {
     );
   }
 
-  const badge = getDocBadge(ext);
+  const badge = getDocBadge(ext, item?.type);
   return (
     <View style={{ width: size, height: size, borderRadius: 6, backgroundColor: badge.bg, justifyContent: 'center', alignItems: 'center' }}>
       <Text style={{ color: badge.text, fontSize: size * 0.3, fontWeight: '900', letterSpacing: -0.5 }}>{badge.label}</Text>

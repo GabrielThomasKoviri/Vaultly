@@ -19,30 +19,34 @@ export const CATEGORIES = [
   { key: 'media', label: 'Media' },
   { key: 'web', label: 'Web' },
   { key: 'audio', label: 'Audio' },
+  { key: 'notes', label: 'Notepad' },
   { key: 'other', label: 'Other' },
 ];
 
 export const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 export const VIDEO_EXTS = ['mp4', 'mkv', 'mov', 'avi'];
 export const AUDIO_EXTS = ['mp3', 'wav', 'aac'];
-export const DOC_EXTS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'];
+export const DOC_EXTS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
 export const WEB_EXTS = ['html', 'htm'];
 
 export function getExt(item) {
-  return (item.file_path || '').split('.').pop().toLowerCase();
+  return (item?.file_path || '').split('.').pop().toLowerCase();
 }
 
 export function getCategory(item) {
+  if (!item) return 'other';
   const ext = getExt(item);
-  if (item.type === 'image' || item.type === 'scan' || IMAGE_EXTS.includes(ext)) return 'media';
-  if (item.type === 'video' || VIDEO_EXTS.includes(ext)) return 'media';
+  if (item?.type === 'note' || ext === 'txt') return 'notes';
+  if (item?.type === 'image' || item?.type === 'scan' || IMAGE_EXTS.includes(ext)) return 'media';
+  if (item?.type === 'video' || VIDEO_EXTS.includes(ext)) return 'media';
   if (AUDIO_EXTS.includes(ext)) return 'audio';
   if (DOC_EXTS.includes(ext)) return 'doc';
   if (WEB_EXTS.includes(ext)) return 'web';
   return 'other';
 }
 
-export function getDocBadge(ext) {
+export function getDocBadge(ext, type) {
+  if (type === 'note' || ext === 'txt') return { label: 'NOTE', bg: '#d97706', text: '#fff' };
   switch (ext) {
     case 'pdf': return { label: 'PDF', bg: '#e53935', text: '#fff' };
     case 'doc':
@@ -51,7 +55,7 @@ export function getDocBadge(ext) {
     case 'xlsx': return { label: 'X', bg: '#2e7d32', text: '#fff' };
     case 'ppt':
     case 'pptx': return { label: 'P', bg: '#e65100', text: '#fff' };
-    case 'txt': return { label: 'TXT', bg: '#546e7a', text: '#fff' };
+    case 'txt': return { label: 'NOTE', bg: '#d97706', text: '#fff' };
     case 'zip':
     case 'rar': return { label: 'ZIP', bg: '#6a1b9a', text: '#fff' };
     case 'html':
@@ -84,15 +88,17 @@ export function timeAgo(iso) {
 }
 
 export function getFileTypeLabel(item) {
+  if (!item) return 'File';
+  if (item?.type === 'note') return 'Text note';
   const ext = getExt(item).toUpperCase();
-  if (item.type === 'image' || item.type === 'scan') return `${ext || 'JPG'} image`;
-  if (item.type === 'video') return `${ext || 'MP4'} video`;
+  if (item?.type === 'image' || item?.type === 'scan') return `${ext || 'JPG'} image`;
+  if (item?.type === 'video') return `${ext || 'MP4'} video`;
   switch (getExt(item)) {
     case 'pdf': return 'PDF document';
     case 'doc': case 'docx': return 'Word document';
     case 'xls': case 'xlsx': return 'Excel spreadsheet';
     case 'ppt': case 'pptx': return 'PowerPoint file';
-    case 'txt': return 'Text file';
+    case 'txt': return 'Text note';
     case 'mp3': case 'wav': case 'aac': return 'Audio file';
     case 'html': case 'htm': return 'Web page';
     case 'zip': case 'rar': return 'Archive file';

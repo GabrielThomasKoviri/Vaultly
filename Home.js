@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import CameraScreen from './CameraScreen';
 import Alert from './customAlert';
-import { addItem, deleteItem, getItems, getLocalUriByHash, getSetting, renameItem, setSetting, toggleFavorite } from './db';
+import { addItem, deleteItem, getItems, getLocalUriByHash, getSetting, renameItem, setSetting, toggleFavorite, updateNote } from './db';
 import { pickerActive } from './pickerState';
 import SettingsScreen from './SettingsScreen';
 import { useTheme } from './ThemeContext';
@@ -32,6 +32,8 @@ import { useTheme } from './ThemeContext';
 import FileThumb from './components/FileThumb';
 import ListCard from './components/ListCard';
 import GridCard from './components/GridCard';
+import ImageViewerModal from './components/ImageViewerModal';
+import NoteEditorModal from './components/NoteEditorModal';
 
 // Utilities
 import {
@@ -150,6 +152,11 @@ function getEmptyStateContent(cat) {
         title: 'No audio files in your vault',
         text: 'Tap + to add an audio track'
       };
+    case 'notes':
+      return {
+        title: 'No notes in your vault',
+        text: 'Tap + or "New Note" to create a note'
+      };
     case 'other':
       return {
         title: 'No other files in your vault',
@@ -181,6 +188,10 @@ export default function Home({ onResetPassword, onLock }) {
   const [pendingFile, setPendingFile] = useState(null);
   const [nameInput, setNameInput] = useState('');
   const [previewItem, setPreviewItem] = useState(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [noteModalVisible, setNoteModalVisible] = useState(false);
+  const [editingNote, setEditingNote] = useState(null);
   const [menuItem, setMenuItem] = useState(null);
   const [renameTarget, setRenameTarget] = useState(null);
   const [renameInput, setRenameInput] = useState('');
@@ -229,7 +240,9 @@ export default function Home({ onResetPassword, onLock }) {
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (selectionMode) { setSelected(new Set()); return true; }
+      if (previewVisible) { setPreviewVisible(false); return true; }
       if (previewItem) { setPreviewItem(null); return true; }
+      if (noteModalVisible) { setNoteModalVisible(false); return true; }
       if (menuItem) { setMenuItem(null); return true; }
       if (query || searchFocused) {
         onSearch('');
@@ -239,7 +252,7 @@ export default function Home({ onResetPassword, onLock }) {
       return false;
     });
     return () => sub.remove();
-  }, [selectionMode, previewItem, menuItem, query, searchFocused]);
+  }, [selectionMode, previewVisible, previewItem, noteModalVisible, menuItem, query, searchFocused]);
 
   const refresh = useCallback(async (q = query, cat = category, isFocused = searchFocused, onlyFavs = showOnlyFavorites) => {
     try {
@@ -284,6 +297,44 @@ export default function Home({ onResetPassword, onLock }) {
       data: chunkByThree(group.data)
     }));
   }, [items, viewMode]);
+
+  const galleryImages = useMemo(() => {
+    return items.filter(i => i && (i.type === 'image' || i.type === 'scan' || IMAGE_EXTS.includes(getExt(i))));
+  }, [items]);
+
+  const createNewNote = () => {
+    setEditingNote(null);
+    setNoteModalVisible(true);
+  };
+
+  const handleSaveNote = async ({ title, content, tags, item }) => {
+    try {
+      await FileSystem.makeDirectoryAsync(VAULT_DIR, { intermediates: true }).catch(() => {});
+      const cleanTitle = (title || 'Untitled Note').trim();
+      const finalName = cleanTitle.toLowerCase().endsWith('.txt') ? cleanTitle : `${cleanTitle}.txt`;
+
+      if (item && item.id) {
+        const dest = item.file_path;
+        await FileSystem.writeAsStringAsync(dest, content, { encoding: FileSystem.EncodingType.UTF8 });
+        const info = await FileSystem.getInfoAsync(dest).catch(() => ({}));
+        const size = info.size || 0;
+        const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, content);
+        await updateNote(item.id, finalName, tags || '', size, hash);
+      } else {
+        const filename = `${Date.now()}.txt`;
+        const dest = VAULT_DIR + filename;
+        await FileSystem.writeAsStringAsync(dest, content, { encoding: FileSystem.EncodingType.UTF8 });
+        const info = await FileSystem.getInfoAsync(dest).catch(() => ({}));
+        const size = info.size || 0;
+        const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, content);
+        await addItem(finalName, 'note', dest, tags || '', size, hash);
+      }
+      await refresh();
+    } catch (err) {
+      console.error('Save note error:', err);
+      throw err;
+    }
+  };
 
   const saveFile = async (uri, ext, type) => {
     try {
@@ -468,8 +519,17 @@ export default function Home({ onResetPassword, onLock }) {
     }
     const ext = getExt(item);
     const isImage = item.type === 'image' || item.type === 'scan' || IMAGE_EXTS.includes(ext);
-    if (isImage) setPreviewItem(item);
-    else openItem(item);
+    if (isImage) {
+      const idx = galleryImages.findIndex(i => i.id === item.id);
+      setPreviewIndex(idx >= 0 ? idx : 0);
+      setPreviewItem(item);
+      setPreviewVisible(true);
+    } else if (item.type === 'note' || ext === 'txt') {
+      setEditingNote(item);
+      setNoteModalVisible(true);
+    } else {
+      openItem(item);
+    }
   };
 
   const onItemLongPress = (item) => {
@@ -644,6 +704,29 @@ export default function Home({ onResetPassword, onLock }) {
         </View>
       )}
 
+      {/* Notepad Banner when in Notepad category */}
+      {category === 'notes' && !(searchFocused || query) && !selectionMode && (
+        <View style={[styles.notepadBar, { backgroundColor: colors.cardBg, borderBottomColor: colors.border }]}>
+          <View style={styles.notepadBarLeft}>
+            <View style={[styles.notepadBarIcon, { backgroundColor: colors.iconBg }]}>
+              <Ionicons name="document-text" size={18} color={accent} />
+            </View>
+            <View>
+              <Text style={[styles.notepadBarTitle, { color: colors.text }]}>Secure Notepad</Text>
+              <Text style={[styles.notepadBarSub, { color: colors.subtext }]}>Private offline notes</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            onPress={createNewNote}
+            style={[styles.notepadAddBtn, { backgroundColor: accent }]}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={18} color="#fff" style={{ marginRight: 4 }} />
+            <Text style={styles.notepadAddBtnText}>New Note</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Selection header */}
       {selectionMode && (
         <View style={[styles.selectionHeader, { backgroundColor: accent }]}>
@@ -687,7 +770,7 @@ export default function Home({ onResetPassword, onLock }) {
       ) : items.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={[styles.emptyIconWrap, { backgroundColor: colors.iconBg }]}>
-            <Ionicons name={searchFocused || query ? "search-outline" : (showOnlyFavorites ? "star-outline" : "folder-open-outline")} size={40} color={accent} />
+            <Ionicons name={searchFocused || query ? "search-outline" : (showOnlyFavorites ? "star-outline" : (category === 'notes' ? "document-text-outline" : "folder-open-outline"))} size={40} color={accent} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             {searchFocused || query ? "No results found" : getEmptyStateContent(showOnlyFavorites ? 'favorites' : category).title}
@@ -695,6 +778,15 @@ export default function Home({ onResetPassword, onLock }) {
           <Text style={[styles.emptyText, { color: colors.subtext }]}>
             {searchFocused || query ? "Try typing a different name or tag" : getEmptyStateContent(showOnlyFavorites ? 'favorites' : category).text}
           </Text>
+          {category === 'notes' && !(searchFocused || query) && (
+            <TouchableOpacity
+              onPress={createNewNote}
+              style={[styles.emptyActionBtn, { backgroundColor: accent, marginTop: 16 }]}
+            >
+              <Ionicons name="create-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+              <Text style={styles.emptyActionBtnText}>Create Note</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <SectionList
@@ -772,26 +864,34 @@ export default function Home({ onResetPassword, onLock }) {
             onPress={() => setShowAddMenu(false)}
           />
 
-          {/* Option 1: Pick Image (Top) */}
+          {/* Option 1: New Note (Top) */}
+          <TouchableOpacity
+            onPress={() => { setShowAddMenu(false); createNewNote(); }}
+            style={[styles.speedDialBtn, { position: 'absolute', bottom: 150, right: 27, backgroundColor: colors.cardBg, borderColor: accent, elevation: 21 }]}
+          >
+            <Ionicons name="create-outline" size={22} color={accent} />
+          </TouchableOpacity>
+
+          {/* Option 2: Pick Image */}
           <TouchableOpacity
             onPress={() => { setShowAddMenu(false); pickImage(); }}
-            style={[styles.speedDialBtn, { position: 'absolute', bottom: 118, right: 27, backgroundColor: colors.cardBg, borderColor: accent, elevation: 21 }]}
+            style={[styles.speedDialBtn, { position: 'absolute', bottom: 118, right: 84, backgroundColor: colors.cardBg, borderColor: accent, elevation: 21 }]}
           >
             <Ionicons name="image-outline" size={22} color={accent} />
           </TouchableOpacity>
 
-          {/* Option 2: Pick File (Diagonal) */}
+          {/* Option 3: Pick File */}
           <TouchableOpacity
             onPress={() => { setShowAddMenu(false); pickDocument(); }}
-            style={[styles.speedDialBtn, { position: 'absolute', bottom: 93, right: 87, backgroundColor: colors.cardBg, borderColor: accent, elevation: 21 }]}
+            style={[styles.speedDialBtn, { position: 'absolute', bottom: 74, right: 124, backgroundColor: colors.cardBg, borderColor: accent, elevation: 21 }]}
           >
             <Ionicons name="document-attach-outline" size={22} color={accent} />
           </TouchableOpacity>
 
-          {/* Option 3: Camera Scan (Left) */}
+          {/* Option 4: Camera Scan (Left) */}
           <TouchableOpacity
             onPress={() => { setShowAddMenu(false); setShowCamera(true); }}
-            style={[styles.speedDialBtn, { position: 'absolute', bottom: 33, right: 112, backgroundColor: colors.cardBg, borderColor: accent, elevation: 21 }]}
+            style={[styles.speedDialBtn, { position: 'absolute', bottom: 22, right: 138, backgroundColor: colors.cardBg, borderColor: accent, elevation: 21 }]}
           >
             <Ionicons name="camera-outline" size={22} color={accent} />
           </TouchableOpacity>
@@ -880,29 +980,45 @@ export default function Home({ onResetPassword, onLock }) {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Image preview fullscreen */}
-      <Modal visible={!!previewItem} animationType="fade" onRequestClose={() => setPreviewItem(null)}>
-        <View style={styles.previewWrap}>
-          <TouchableOpacity onPress={() => setPreviewItem(null)} style={styles.previewClose}>
-            <Ionicons name="close" size={26} color="#fff" />
-          </TouchableOpacity>
-          {previewItem && <Image source={{ uri: previewItem.file_path }} style={styles.previewImage} />}
-          <View style={styles.previewInfo}>
-            <Text style={styles.previewName}>{previewItem?.name}</Text>
-            <Text style={styles.previewSub}>{formatSize(previewItem?.size)} • {timeAgo(previewItem?.created_at)}</Text>
-          </View>
-          <View style={styles.previewActions}>
-            <TouchableOpacity onPress={() => previewItem && doShare([previewItem])} style={[styles.previewBtn, { backgroundColor: '#444' }]}>
-              <Ionicons name="share-social-outline" size={18} color="#fff" />
-              <Text style={styles.previewBtnText}>Share</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => { const it = previewItem; setPreviewItem(null); doDelete([it]); }} style={[styles.previewBtn, { backgroundColor: '#b91c1c' }]}>
-              <Ionicons name="trash-outline" size={18} color="#fff" />
-              <Text style={styles.previewBtnText}>Delete</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      {/* Image preview fullscreen with swipe & zoom */}
+      <ImageViewerModal
+        visible={previewVisible}
+        items={galleryImages.length > 0 ? galleryImages : (previewItem ? [previewItem] : [])}
+        initialIndex={previewIndex}
+        onClose={() => {
+          setPreviewVisible(false);
+          setPreviewItem(null);
+        }}
+        onShare={(it) => it && doShare([it])}
+        onDelete={(it) => {
+          if (it) {
+            doDelete([it]);
+            if (galleryImages.length <= 1) {
+              setPreviewVisible(false);
+              setPreviewItem(null);
+            }
+          }
+        }}
+      />
+
+      {/* Note Editor Modal */}
+      <NoteEditorModal
+        visible={noteModalVisible}
+        noteItem={editingNote}
+        onClose={() => {
+          setNoteModalVisible(false);
+          setEditingNote(null);
+        }}
+        onSave={handleSaveNote}
+        onDelete={(it) => {
+          if (it) {
+            setNoteModalVisible(false);
+            setEditingNote(null);
+            doDelete([it]);
+          }
+        }}
+        onShare={(it) => it && doShare([it])}
+      />
 
       {/* 3-dot context menu */}
       <Modal visible={!!menuItem} transparent animationType="fade" onRequestClose={() => setMenuItem(null)}>
@@ -918,7 +1034,11 @@ export default function Home({ onResetPassword, onLock }) {
                 </View>
               </View>
             )}
-            <MenuAction icon="open-outline" label="Open with" onPress={() => { const it = menuItem; setMenuItem(null); openItem(it); }} colors={colors} accent={accent} />
+            {(menuItem?.type === 'note' || getCategory(menuItem) === 'notes') ? (
+              <MenuAction icon="create-outline" label="Edit Note" onPress={() => { const it = menuItem; setMenuItem(null); setEditingNote(it); setNoteModalVisible(true); }} colors={colors} accent={accent} />
+            ) : (
+              <MenuAction icon="open-outline" label="Open with" onPress={() => { const it = menuItem; setMenuItem(null); openItem(it); }} colors={colors} accent={accent} />
+            )}
             <MenuAction icon="share-social-outline" label="Share" onPress={() => { const it = menuItem; setMenuItem(null); doShare([it]); }} colors={colors} accent={accent} />
             <MenuAction icon={menuItem?.is_favorite === 1 ? "star" : "star-outline"} label={menuItem?.is_favorite === 1 ? "Remove from Favorites" : "Add to Favorites"} onPress={() => { const it = menuItem; setMenuItem(null); toggleFavorite(it.id, it.is_favorite).then(() => refresh(query, category)).catch(() => Alert.alert("Error", "Failed to update favorite status")); }} colors={colors} accent={accent} />
             <MenuAction icon="copy-outline" label="Duplicate" onPress={() => { const it = menuItem; setMenuItem(null); doDuplicate(it); }} colors={colors} accent={accent} />
@@ -1097,4 +1217,13 @@ const styles = StyleSheet.create({
   recentSearchClickable: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   recentSearchText: { fontSize: 15, fontWeight: '500' },
   recentSearchRemove: { padding: 4, marginLeft: 10 },
+  notepadBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
+  notepadBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  notepadBarIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  notepadBarTitle: { fontSize: 15, fontWeight: '700' },
+  notepadBarSub: { fontSize: 11, marginTop: 1 },
+  notepadAddBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 14, borderRadius: 18 },
+  notepadAddBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  emptyActionBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 22 },
+  emptyActionBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });
