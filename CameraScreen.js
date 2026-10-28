@@ -150,26 +150,26 @@ export default function CameraScreen({ onCapture, onClose }) {
       const imageLeft = (areaW - previewW) / 2;
       const imageTop = (areaH - previewH) / 2;
 
-      const scale = Math.max(areaH / imgHeight, areaW / imgWidth);
-      const displayedWidth = imgWidth * scale;
-      const displayedHeight = imgHeight * scale;
-      const offsetX = (areaW - displayedWidth) / 2;
-      const offsetY = (areaH - displayedHeight) / 2;
+      const scale = previewW / imgWidth;
+      const relX = Math.max(0, boxX - imageLeft);
+      const relY = Math.max(0, boxY - imageTop);
+      const relW = Math.min(boxW, Math.max(1, previewW - (boxX - imageLeft)));
+      const relH = Math.min(boxH, Math.max(1, previewH - (boxY - imageTop)));
 
       // Transform crop coordinates from screen to high-res image coordinates
-      const cropX = Math.max(0, (boxX - offsetX) / scale);
-      const cropY = Math.max(0, (boxY - offsetY) / scale);
-      const cropW = Math.min(imgWidth - cropX, boxW / scale);
-      const cropH = Math.min(imgHeight - cropY, boxH / scale);
+      const cropX = Math.round(Math.max(0, Math.min(imgWidth - 1, relX / scale)));
+      const cropY = Math.round(Math.max(0, Math.min(imgHeight - 1, relY / scale)));
+      const cropW = Math.round(Math.max(1, Math.min(imgWidth - cropX, relW / scale)));
+      const cropH = Math.round(Math.max(1, Math.min(imgHeight - cropY, relH / scale)));
 
       const manipulated = await ImageManipulator.manipulateAsync(
         capturedPhoto.uri,
         [{
           crop: {
-            originX: Math.round(cropX),
-            originY: Math.round(cropY),
-            width: Math.round(cropW),
-            height: Math.round(cropH)
+            originX: cropX,
+            originY: cropY,
+            width: cropW,
+            height: cropH
           }
         }],
         { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG }

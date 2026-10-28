@@ -1,7 +1,7 @@
 {
   "name": "personalvault",
   "main": "node_modules/expo/AppEntry.js",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "dependencies": {
     "@expo/ui": "~56.0.18",
     "@expo/vector-icons": "^15.1.1",
