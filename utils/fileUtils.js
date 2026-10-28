@@ -46,24 +46,23 @@ export function getCategory(item) {
 }
 
 export function getDocBadge(ext, type) {
-  if (type === 'note' || ext === 'txt') return { label: 'NOTE', bg: '#d97706', text: '#fff' };
+  if (type === 'note' || ext === 'txt') return { label: 'NOTE', bg: '#d97706', icon: 'document-text', text: '#fff' };
   switch (ext) {
-    case 'pdf': return { label: 'PDF', bg: '#e53935', text: '#fff' };
+    case 'pdf': return { label: 'PDF', bg: '#e53935', icon: 'document-text', text: '#fff' };
     case 'doc':
-    case 'docx': return { label: 'W', bg: '#1565c0', text: '#fff' };
+    case 'docx': return { label: 'DOC', bg: '#1e88e5', icon: 'document-text', text: '#fff' };
     case 'xls':
-    case 'xlsx': return { label: 'X', bg: '#2e7d32', text: '#fff' };
+    case 'xlsx': return { label: 'XLS', bg: '#2e7d32', icon: 'grid', text: '#fff' };
     case 'ppt':
-    case 'pptx': return { label: 'P', bg: '#e65100', text: '#fff' };
-    case 'txt': return { label: 'NOTE', bg: '#d97706', text: '#fff' };
+    case 'pptx': return { label: 'PPT', bg: '#e65100', icon: 'easel', text: '#fff' };
     case 'zip':
-    case 'rar': return { label: 'ZIP', bg: '#6a1b9a', text: '#fff' };
+    case 'rar': return { label: 'ZIP', bg: '#7c3aed', icon: 'archive', text: '#fff' };
     case 'html':
-    case 'htm': return { label: 'HTML', bg: '#00838f', text: '#fff' };
+    case 'htm': return { label: 'HTML', bg: '#0284c7', icon: 'globe', text: '#fff' };
     case 'mp3':
     case 'wav':
-    case 'aac': return { label: '♪', bg: '#ad1457', text: '#fff' };
-    default: return { label: 'FILE', bg: '#78909c', text: '#fff' };
+    case 'aac': return { label: 'AUDIO', bg: '#ad1457', icon: 'musical-notes', text: '#fff' };
+    default: return { label: (ext ? ext.toUpperCase().slice(0, 4) : 'FILE'), bg: '#607d8b', icon: 'document-text', text: '#fff' };
   }
 }
 

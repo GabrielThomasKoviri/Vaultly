@@ -40,6 +40,7 @@ import {
   CATEGORIES,
   IMAGE_EXTS,
   VIDEO_EXTS,
+  MIME_TYPES,
   getExt,
   getCategory,
   formatSize,
@@ -497,18 +498,39 @@ export default function Home({ onResetPassword, onLock }) {
   };
 
   const openItem = async (item) => {
+    if (!item?.file_path) return;
     const ext = getExt(item);
-    const mime = MIME_TYPES[ext] || '*/*';
+    const mime = (MIME_TYPES && MIME_TYPES[ext]) ? MIME_TYPES[ext] : (ext === 'pdf' ? 'application/pdf' : '*/*');
     try {
       pickerActive.value = true;
       const contentUri = await FileSystem.getContentUriAsync(item.file_path);
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-        data: contentUri, flags: 1, type: mime
+        data: contentUri,
+        flags: 1, // Intent.FLAG_GRANT_READ_URI_PERMISSION
+        type: mime,
       });
       pickerActive.value = false;
-    } catch {
+    } catch (err) {
+      console.warn('IntentLauncher open failed, trying share fallback:', err?.message);
+      // Fallback: system sharing chooser which opens with compatible viewers
+      try {
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(item.file_path, {
+            mimeType: mime,
+            dialogTitle: `Open ${item.name || 'document'} with...`,
+          });
+          pickerActive.value = false;
+          return;
+        }
+      } catch (shareErr) {
+        console.warn('Share fallback failed:', shareErr?.message);
+      }
       pickerActive.value = false;
-      Alert.alert('No app found', 'No app can open this file type.');
+      Alert.alert(
+        'Cannot Open File',
+        `No application was found to open ${ext ? '.' + ext.toUpperCase() : 'this'} files. Please make sure a compatible PDF or document reader is installed.`
+      );
     }
   };
 

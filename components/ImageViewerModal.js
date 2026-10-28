@@ -19,7 +19,7 @@ import { useTheme } from '../ThemeContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-function ZoomableImage({ item, isCurrent, onZoomChange, onSingleTap, resetSignal }) {
+function ZoomableImage({ item, isCurrent, onZoomChange, onPinchStateChange, onSingleTap, resetSignal }) {
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
@@ -55,7 +55,10 @@ function ZoomableImage({ item, isCurrent, onZoomChange, onSingleTap, resetSignal
     currentScale.current = 1;
     currentTranslateX.current = 0;
     currentTranslateY.current = 0;
+    isPinching.current = false;
+    initialDistance.current = 0;
     if (onZoomChange) onZoomChange(1);
+    if (onPinchStateChange) onPinchStateChange(false);
 
     if (animate) {
       Animated.parallel([
@@ -68,7 +71,7 @@ function ZoomableImage({ item, isCurrent, onZoomChange, onSingleTap, resetSignal
       translateX.setValue(0);
       translateY.setValue(0);
     }
-  }, [scale, translateX, translateY, onZoomChange]);
+  }, [scale, translateX, translateY, onZoomChange, onPinchStateChange]);
 
   // When this item is no longer the current page, reset its zoom
   useEffect(() => {
@@ -96,6 +99,8 @@ function ZoomableImage({ item, isCurrent, onZoomChange, onSingleTap, resetSignal
   const setScaleAnimated = (targetScale, tapX, tapY) => {
     const clamped = Math.max(1, Math.min(4, targetScale));
     currentScale.current = clamped;
+    isPinching.current = false;
+    if (onPinchStateChange) onPinchStateChange(false);
     if (onZoomChange) onZoomChange(clamped);
 
     if (clamped <= 1.05) {
@@ -133,17 +138,48 @@ function ZoomableImage({ item, isCurrent, onZoomChange, onSingleTap, resetSignal
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: (evt) => evt.nativeEvent.touches.length >= 2,
-      onMoveShouldSetPanResponderCapture: (evt) => evt.nativeEvent.touches.length >= 2,
+      onStartShouldSetPanResponderCapture: (evt) => {
+        if (evt.nativeEvent.touches && evt.nativeEvent.touches.length >= 2) {
+          isPinching.current = true;
+          if (onPinchStateChange) onPinchStateChange(true);
+          return true;
+        }
+        return false;
+      },
+      onMoveShouldSetPanResponderCapture: (evt) => {
+        if (evt.nativeEvent.touches && evt.nativeEvent.touches.length >= 2) {
+          isPinching.current = true;
+          if (onPinchStateChange) onPinchStateChange(true);
+          return true;
+        }
+        return false;
+      },
       onMoveShouldSetPanResponder: (evt, gestureState) => {
-        if (evt.nativeEvent.touches.length >= 2) return true;
+        if (evt.nativeEvent.touches && evt.nativeEvent.touches.length >= 2) return true;
         if (currentScale.current > 1.05) {
           return Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3;
         }
         return false;
       },
-      onPanResponderTerminationRequest: () => {
-        return !isPinching.current && currentScale.current <= 1.05;
+      onPanResponderTerminationRequest: (evt, gestureState) => {
+        // Never allow FlatList to terminate if 2 or more touches exist
+        if (evt.nativeEvent.touches && evt.nativeEvent.touches.length >= 2) {
+          return false;
+        }
+        // Never allow termination if actively pinching
+        if (isPinching.current) {
+          return false;
+        }
+        // Never allow termination if zoomed in
+        if (currentScale.current > 1.05) {
+          return false;
+        }
+        // If at 1x with 1 finger: ONLY yield to FlatList if clear horizontal swipe
+        if (gestureState && Math.abs(gestureState.dx) > 15 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5) {
+          return true;
+        }
+        // Otherwise, do not terminate (protects taps and fast 2nd finger placement)
+        return false;
       },
       onPanResponderGrant: (evt) => {
         const touches = evt.nativeEvent.touches;
@@ -151,16 +187,20 @@ function ZoomableImage({ item, isCurrent, onZoomChange, onSingleTap, resetSignal
         tapStartX.current = evt.nativeEvent.pageX;
         tapStartY.current = evt.nativeEvent.pageY;
 
-        if (touches.length === 2) {
+        if (touches.length >= 2) {
           if (singleTapTimer.current) {
             clearTimeout(singleTapTimer.current);
             singleTapTimer.current = null;
           }
+          lastTapTime.current = 0;
           isPinching.current = true;
-          initialDistance.current = Math.hypot(
+          if (onPinchStateChange) onPinchStateChange(true);
+
+          const dist = Math.hypot(
             touches[0].pageX - touches[1].pageX,
             touches[0].pageY - touches[1].pageY
           );
+          initialDistance.current = dist > 0 ? dist : 1;
           initialScale.current = currentScale.current;
           initialTranslateX.current = currentTranslateX.current;
           initialTranslateY.current = currentTranslateY.current;
@@ -176,18 +216,22 @@ function ZoomableImage({ item, isCurrent, onZoomChange, onSingleTap, resetSignal
       onPanResponderMove: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
 
-        if (touches.length === 2) {
-          // Initialize pinch if gesture started with 1 finger then added second finger
-          if (!isPinching.current) {
+        if (touches.length >= 2) {
+          const curDist = Math.hypot(
+            touches[0].pageX - touches[1].pageX,
+            touches[0].pageY - touches[1].pageY
+          );
+
+          if (!isPinching.current || initialDistance.current <= 0) {
             if (singleTapTimer.current) {
               clearTimeout(singleTapTimer.current);
               singleTapTimer.current = null;
             }
+            lastTapTime.current = 0;
             isPinching.current = true;
-            initialDistance.current = Math.hypot(
-              touches[0].pageX - touches[1].pageX,
-              touches[0].pageY - touches[1].pageY
-            );
+            if (onPinchStateChange) onPinchStateChange(true);
+
+            initialDistance.current = curDist > 0 ? curDist : 1;
             initialScale.current = currentScale.current;
             initialTranslateX.current = currentTranslateX.current;
             initialTranslateY.current = currentTranslateY.current;
@@ -197,10 +241,6 @@ function ZoomableImage({ item, isCurrent, onZoomChange, onSingleTap, resetSignal
           }
 
           if (initialDistance.current > 0) {
-            const curDist = Math.hypot(
-              touches[0].pageX - touches[1].pageX,
-              touches[0].pageY - touches[1].pageY
-            );
             const ratio = curDist / initialDistance.current;
             const nextScale = Math.max(0.7, Math.min(5, initialScale.current * ratio));
 
@@ -219,12 +259,11 @@ function ZoomableImage({ item, isCurrent, onZoomChange, onSingleTap, resetSignal
             currentScale.current = nextScale;
             currentTranslateX.current = nextX;
             currentTranslateY.current = nextY;
-            if (onZoomChange) onZoomChange(nextScale);
           }
         } else if (touches.length === 1) {
           if (isPinching.current) {
-            // Lifted one finger during pinch: smoothly transition to single finger pan
             isPinching.current = false;
+            if (onPinchStateChange) onPinchStateChange(false);
             panStartX.current = touches[0].pageX;
             panStartY.current = touches[0].pageY;
             baseTranslateX.current = currentTranslateX.current;
@@ -242,7 +281,6 @@ function ZoomableImage({ item, isCurrent, onZoomChange, onSingleTap, resetSignal
             const maxPanX = Math.max(0, (SCREEN_WIDTH * (currentScale.current - 1)) / 2);
             const maxPanY = Math.max(0, (SCREEN_HEIGHT * (currentScale.current - 1)) / 2);
 
-            // Light rubber-banding when dragged beyond image boundaries
             if (nextX > maxPanX) nextX = maxPanX + (nextX - maxPanX) * 0.3;
             else if (nextX < -maxPanX) nextX = -maxPanX + (nextX + maxPanX) * 0.3;
 
@@ -259,6 +297,14 @@ function ZoomableImage({ item, isCurrent, onZoomChange, onSingleTap, resetSignal
       onPanResponderRelease: (evt, gestureState) => {
         if (isPinching.current) {
           isPinching.current = false;
+          if (onPinchStateChange) onPinchStateChange(false);
+          initialDistance.current = 0;
+          lastTapTime.current = 0;
+          if (singleTapTimer.current) {
+            clearTimeout(singleTapTimer.current);
+            singleTapTimer.current = null;
+          }
+
           if (currentScale.current <= 1.05) {
             resetZoom(true);
           } else {
@@ -306,7 +352,7 @@ function ZoomableImage({ item, isCurrent, onZoomChange, onSingleTap, resetSignal
               setScaleAnimated(2.5, pageX, pageY);
             }
           } else {
-            // First tap: set timer for single-click toggle
+            // Single tap candidate
             lastTapTime.current = now;
             lastTapX.current = pageX;
             lastTapY.current = pageY;
@@ -342,6 +388,8 @@ function ZoomableImage({ item, isCurrent, onZoomChange, onSingleTap, resetSignal
           singleTapTimer.current = null;
         }
         isPinching.current = false;
+        initialDistance.current = 0;
+        if (onPinchStateChange) onPinchStateChange(false);
         if (currentScale.current <= 1.05) {
           resetZoom(false);
         }
@@ -380,6 +428,7 @@ export default function ImageViewerModal({
   const { accent } = useTheme();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [activeScale, setActiveScale] = useState(1);
+  const [isPinching, setIsPinching] = useState(false);
   const [zoomResetSignal, setZoomResetSignal] = useState(0);
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsOpacity = useRef(new Animated.Value(1)).current;
@@ -402,6 +451,7 @@ export default function ImageViewerModal({
       const idx = Math.max(0, Math.min(items.length - 1, initialIndex));
       setCurrentIndex(idx);
       setActiveScale(1);
+      setIsPinching(false);
       setControlsVisible(true);
       controlsOpacity.setValue(1);
     }
@@ -505,7 +555,7 @@ export default function ImageViewerModal({
           keyExtractor={(item, idx) => String(item.id || idx)}
           horizontal
           pagingEnabled
-          scrollEnabled={activeScale <= 1.05}
+          scrollEnabled={activeScale <= 1.05 && !isPinching}
           showsHorizontalScrollIndicator={false}
           initialScrollIndex={Math.max(0, Math.min(items.length - 1, initialIndex))}
           getItemLayout={(data, index) => ({
@@ -519,6 +569,7 @@ export default function ImageViewerModal({
               item={item}
               isCurrent={index === currentIndex}
               onZoomChange={index === currentIndex ? setActiveScale : undefined}
+              onPinchStateChange={index === currentIndex ? setIsPinching : undefined}
               onSingleTap={toggleControls}
               resetSignal={index === currentIndex ? zoomResetSignal : 0}
             />

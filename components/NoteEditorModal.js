@@ -132,7 +132,7 @@ export default function NoteEditorModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
-      <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
+      <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.cardBg} />
       <KeyboardAvoidingView
         style={[styles.container, { backgroundColor: colors.bg }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -144,9 +144,12 @@ export default function NoteEditorModal({
           </TouchableOpacity>
 
           <View style={styles.headerTitleWrap}>
-            <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
-              {isEditing ? 'Edit Note' : 'New Note'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="document-text" size={17} color={accent} />
+              <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+                {isEditing ? 'Edit Note' : 'New Note'}
+              </Text>
+            </View>
             <Text style={[styles.headerMeta, { color: colors.subtext }]}>
               {wordCount} words • {charCount} chars
             </Text>
@@ -275,7 +278,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingTop: Platform.OS === 'android' ? Math.max(StatusBar.currentHeight || 0, 24) + 12 : 50,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     gap: 10,
   },
